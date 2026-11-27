@@ -72,10 +72,66 @@ services:
       retries: 6
       start_period: 90s
 
+  backend:
+    <<: *service-defaults
+    build: ./backend
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD:?Set PLATFORM_DB_PASSWORD in .env}
+      PLATFORM_ADMIN_USERNAME: ${PLATFORM_ADMIN_USERNAME:-portal_admin}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:?Set PLATFORM_ADMIN_PASSWORD in .env}
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:?Set PLATFORM_JWT_SECRET in .env}
+      PLATFORM_COOKIE_SECURE: ${PLATFORM_COOKIE_SECURE:-false}
+      LANGFLOW_BASE_URL: http://langflow:7860
+    networks:
+      - database
+      - portal
+    cpus: 0.75
+    mem_limit: 384m
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp:size=16m]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).close()"]
+      interval: 10s
+      timeout: 4s
+      retries: 5
+      start_period: 20s
+
+  portal:
+    <<: *service-defaults
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - portal
+    ports:
+      - "127.0.0.1:${PORTAL_PORT:-8080}:8080"
+    cpus: 0.25
+    mem_limit: 64m
+    cap_drop: [ALL]
+    read_only: true
+    volumes:
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 16777216
+          mode: 01777
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/portal-health"]
+      interval: 10s
+      timeout: 4s
+      retries: 5
+
 networks:
   database:
     internal: true
   outbound:
+  portal:
 
 volumes:
   postgres_data:

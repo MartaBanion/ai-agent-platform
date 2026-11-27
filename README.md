@@ -37,7 +37,21 @@
 
 ## 项目进度
 
-V0.1 - 基础环境与引擎验证阶段
+V0.2 - 自主门户、账号与权限、核心服务状态
+
+## 统一门户
+
+门户通过 Nginx 提供 Vue 生产构建产物和同源 `/api/v1` 接口。在客户端建立隧道后打开 `http://127.0.0.1:8080/`。
+
+```sh
+ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:8080 ubuntu@192.168.61.132
+```
+
+当前门户管理员用户名是 `portal_admin`，初始密码位于虚拟机项目根目录的 `.env` 中，变量为 `PLATFORM_ADMIN_PASSWORD`。在私有 SSH 终端查看该项，登录后通过个人设置修改密码。初始化配置只在没有可用管理员时生效。门户账号独立于 Langflow 账号。
+
+新环境按 `.env.example` 生成独立的 `PLATFORM_ADMIN_PASSWORD` 和 `PLATFORM_JWT_SECRET`，将 `.env` 权限设为 `0600`，然后运行 `docker compose up -d --build --wait`。后端启动时通过 Alembic 迁移业务库，再初始化管理员。当前回环入口由 SSH 提供传输加密，启用 HTTPS 时设置 `PLATFORM_COOKIE_SECURE=true`。
+
+在刚初始化且仍使用初始管理员密码的部署上，执行 `python3 tests/phase2_smoke.py` 可验证生产前端产物、API、权限、会话、账号管理及登录限流。脚本需要本机 Docker 权限以清理此次测试创建的账号。
 
 ## 第一阶段开发入口
 
