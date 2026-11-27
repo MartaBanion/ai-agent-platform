@@ -1,10 +1,11 @@
 import os
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.db import engine
+from app.ai_models import Execution
 from app.models import User
 from app.schemas import CreateUser
 from app.security import hash_password
@@ -12,6 +13,9 @@ from app.security import hash_password
 
 def bootstrap():
     with Session(engine) as db:
+        db.execute(update(Execution).where(Execution.status == "running")
+                   .values(status="cancelled", error="服务重启中断执行"))
+        db.commit()
         if db.scalar(select(User.id).where(User.role == "admin", User.is_active.is_(True)).limit(1)):
             return
         admin = CreateUser(username=os.environ.get("PLATFORM_ADMIN_USERNAME", "portal_admin"),

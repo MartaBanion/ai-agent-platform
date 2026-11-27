@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { createRouter, createWebHistory, type RouteComponent } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordSingleView } from 'vue-router'
 import { ChatDotRound, Connection, Cpu, DataAnalysis, Document, Files, Grid, House, Key, Management, Monitor, Operation, Setting } from '@element-plus/icons-vue'
 import { useAuth } from './auth'
 import Workspace from './views/Workspace.vue'
@@ -13,18 +13,19 @@ interface NavItem {
   path: string
   title: string
   icon: Component
-  component?: RouteComponent
+  component?: RouteRecordSingleView['component']
   admin?: boolean
+  builder?: boolean
 }
 
 export const sections: { title: string; items: NavItem[] }[] = [
   { title: '工作空间', items: [
     { path: '/workbench', title: '工作台', icon: House, component: Dashboard },
-    { path: '/chat', title: 'AI 对话', icon: ChatDotRound },
-    { path: '/agents', title: '智能体管理', icon: Cpu },
-    { path: '/workflows', title: '工作流管理', icon: Connection },
+    { path: '/chat', title: 'AI 对话', icon: ChatDotRound, component: () => import('./views/Chat.vue') },
+    { path: '/agents', title: '智能体管理', icon: Cpu, component: () => import('./views/Agents.vue') },
+    { path: '/workflows', title: '工作流管理', icon: Connection, component: () => import('./views/Workflows.vue'), builder: true },
     { path: '/knowledge', title: '知识库管理', icon: Files },
-    { path: '/models', title: '模型管理', icon: DataAnalysis },
+    { path: '/models', title: '模型管理', icon: DataAnalysis, component: () => import('./views/ModelCenter.vue'), admin: true },
     { path: '/mcp', title: 'MCP 工具中心', icon: Operation },
     { path: '/apps', title: '应用中心', icon: Grid },
     { path: '/tasks', title: '任务中心', icon: Management },
@@ -46,7 +47,7 @@ export const router = createRouter({
       ...sections.flatMap(section => section.items.map(item => ({
         path: item.path.slice(1),
         component: item.component ?? Pending,
-        meta: { title: item.title, admin: item.admin ?? false },
+        meta: { title: item.title, admin: item.admin ?? false, builder: item.builder ?? false },
       }))),
       { path: ':pathMatch(.*)*', component: Pending, meta: { title: '页面未找到', missing: true } },
     ] },
@@ -59,4 +60,5 @@ router.beforeEach(async (to) => {
   if (!auth.user && to.path !== '/login') return '/login'
   if (auth.user && to.path === '/login') return '/workbench'
   if (to.meta.admin && auth.user?.role !== 'admin') return '/workbench'
+  if (to.meta.builder && auth.user?.role === 'user') return '/workbench'
 })

@@ -12,6 +12,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
 from app.auth_api import router as auth_router
+from app.agent_api import router as agent_router
+from app.chat_api import router as chat_router
+from app.execution import router as execution_router
+from app.model_api import router as model_router
+from app.workflow_api import router as workflow_router
 from app.db import engine
 from app.langflow import langflow
 from app.models import User
@@ -38,6 +43,11 @@ app = FastAPI(title="企业 AI 智能体平台", docs_url=None, redoc_url=None, 
 api = APIRouter(prefix="/api/v1")
 api.include_router(auth_router)
 api.include_router(users_router)
+api.include_router(model_router)
+api.include_router(agent_router)
+api.include_router(chat_router)
+api.include_router(workflow_router)
+api.include_router(execution_router)
 
 
 def error_response(request, status, code, message, headers=None):

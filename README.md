@@ -37,7 +37,15 @@
 
 ## 项目进度
 
-V0.2 - 自主门户、账号与权限、核心服务状态
+V0.3 - 模型中心、流式对话、智能体与 Langflow 工作流
+
+## 第三阶段配置
+
+门户管理员经 8080 SSH 隧道进入「模型管理」，新增服务商、模型标识和 API Key，测试连接后启用并设为默认模型。OpenAI、DeepSeek、Qwen 使用固定官方地址，自定义 OpenAI-compatible 服务使用公开 HTTPS 443 地址。模型密钥由后端加密保存，`PLATFORM_MODEL_KEY` 应随受限部署配置安全备份。
+
+「企业 IT 智能运维助手」已创建为草稿并关联 Langflow 模型对话流程。配置启用的 OpenAI 或 DeepSeek 模型后，在「智能体管理」选择该模型并调试，按需发布。Qwen 和自定义服务可用于普通模型对话。现有 Langflow 编排入口仍通过 7860 SSH 隧道和独立 Langflow 登录访问。
+
+新部署可在宿主机运行 `python3 scripts/provision_langflow.py` 配置非管理员引擎服务账号及模型加密密钥，随后重建后端并运行 `python3 scripts/seed_ai.py` 初始化内置流程和助手。当前实例已执行这两步。
 
 ## 统一门户
 

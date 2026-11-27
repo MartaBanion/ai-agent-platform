@@ -22,7 +22,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+export async function api<T>(path: string, method = 'GET', body?: unknown, timeout = 12000): Promise<T> {
   let response: Response
   try {
     response = await fetch('/api/v1' + path, {
@@ -30,7 +30,7 @@ export async function api<T>(path: string, method = 'GET', body?: unknown): Prom
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-Platform-Request': '1' },
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(timeout),
     })
   } catch {
     throw new ApiError(0, '无法连接平台，请检查连接后重试')

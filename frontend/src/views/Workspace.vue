@@ -16,7 +16,8 @@ const dark = ref(document.documentElement.classList.contains('dark'))
 const healthy = ref<boolean | null>(null)
 let healthTimer: number | undefined
 const visibleSections = computed(() => sections.map(section => ({
-  ...section, items: section.items.filter(item => !item.admin || auth.user?.role === 'admin'),
+  ...section, items: section.items.filter(item => (!item.admin || auth.user?.role === 'admin') &&
+    (!item.builder || auth.user?.role !== 'user')),
 })))
 
 watch(collapsed, value => localStorage.setItem('portal-nav', value ? 'collapsed' : 'expanded'))
