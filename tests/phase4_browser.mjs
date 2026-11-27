@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { join } from 'node:path'
 import bundled from '@sparticuz/chromium'
 import { chromium } from 'playwright-core'
 
@@ -36,6 +37,11 @@ async function closeModal() {
 }
 async function confirmDelete() {
   await button('确定', page.getByRole('dialog')).click()
+}
+
+async function capture(name, section) {
+  const directory = process.env.PORTAL_TEST_SCREENSHOTS
+  if (directory) await section.screenshot({ path: join(directory, name + '.png'), animations: 'disabled' })
 }
 
 try {
@@ -76,6 +82,7 @@ try {
   await page.getByLabel('检索问题').fill('忘记了口令，怎么找回？')
   await button('执行检索').click()
   await page.locator('.reference-card').getByRole('link', { name: 'browser-knowledge.md' }).waitFor()
+  await capture('knowledge-search', page.locator('.resource-detail'))
   const reprocessed = page.waitForResponse(response => response.url().endsWith('/reprocess') && response.status() === 202)
   await button('重处理', document).click()
   await reprocessed
@@ -90,7 +97,7 @@ try {
   serverId = (await (await newServer).json()).id
   await page.getByRole('heading', { name: serverName, exact: true }).waitFor()
   await button('连接测试与发现').click()
-  await page.getByRole('row').filter({ hasText: 'current_time' }).waitFor()
+  await page.locator('.resource-detail').getByRole('row').filter({ hasText: 'current_time' }).waitFor()
   await button('编辑').click()
   const editServer = dialog('编辑 MCP 服务')
   await editServer.getByRole('checkbox', { name: 'current_time', exact: true }).check()
@@ -121,11 +128,15 @@ try {
   await button('参数与调试', approvedTool).click()
   const debug = dialog('current_time · 参数与调试')
   await debug.getByLabel('工具参数（JSON）').fill('{"zone":"UTC"}')
+  const pendingCall = created('/api/v1/mcp/servers/' + serverId + '/calls')
   await button('提交审批', debug).click()
+  const testReceipt = await (await pendingCall).json()
+  console.log('Temporary MCP receipt:', testReceipt.id)
   const receipt = dialog('current_time · 调用记录')
   await receipt.getByText('待审批', { exact: true }).waitFor()
   await button('批准并执行', receipt).click()
-  await receipt.locator('pre').getByText('"zone": "UTC"', { exact: false }).waitFor()
+  await receipt.locator('pre').getByText('"datetime":', { exact: false }).waitFor()
+  await capture('mcp-approved-call', receipt.locator('.el-dialog'))
   await closeModal()
 
   await api('/agents/' + agentId, 'DELETE')

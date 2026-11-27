@@ -147,3 +147,7 @@ CPU 为回归测试结束后的单次采样。门户 8080 和 Langflow 7860 继�
 | Langflow | 0.90% | 1.354 GiB / 3 GiB |
 
 生成式 RAG、云端 Embedding 和真实外部 MCP 服务接入尚待具备对应服务、有效凭据和合规出站时验证。本阶段未修改第三阶段网络及 SSRF 校验，也未启动 Redis 或 Celery。
+
+### 自主验收补充记录
+
+按更新后的项目规范，复跑实际 8080 门户的第四阶段 Chromium 测试，结果通过。测试通过工具返回的 `datetime` 字段确认审批后实际执行，测试创建的知识库、文档、智能体、服务和调用回执均已清理。截图仅包含测试数据。[语义检索与引用](acceptance/phase4/knowledge-search.png) · [MCP 审批执行结果](acceptance/phase4/mcp-approved-call.png)
