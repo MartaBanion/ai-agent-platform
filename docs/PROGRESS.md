@@ -151,3 +151,7 @@ CPU 为回归测试结束后的单次采样。门户 8080 和 Langflow 7860 继�
 ### 自主验收补充记录
 
 按更新后的项目规范，复跑实际 8080 门户的第四阶段 Chromium 测试，结果通过。测试通过工具返回的 `datetime` 字段确认审批后实际执行，测试创建的知识库、文档、智能体、服务和调用回执均已清理。截图仅包含测试数据。[语义检索与引用](acceptance/phase4/knowledge-search.png) · [MCP 审批执行结果](acceptance/phase4/mcp-approved-call.png)
+
+## V0.4 正式文档交付
+
+以业务基线 `31f6d31`、部署配置和真实验收记录编写 [架构](ARCHITECTURE.md)、[部署](DEPLOYMENT.md)、[使用与安全](USER-GUIDE.md) 及 [验收运维交接](OPERATIONS.md) 文档。文档复核覆盖本地链接与锚点、截图、三张 Mermaid 图、Bash 语法、独立临时环境中的新配置生成与防覆盖检查，以及运行实例的 Compose、健康端点、Nginx、Alembic 和依赖一致性。已核对 PostgreSQL 模式归档读取及 Qdrant 恢复选项。新机完整重建与灾备恢复演练保留为推荐流程，尚未通过实测验收。业务代码与部署配置保持原样。

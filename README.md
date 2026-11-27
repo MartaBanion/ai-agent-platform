@@ -1,82 +1,21 @@
 # Enterprise AI Agent Platform
 
-企业级 AI 智能体平台
+企业级 AI 智能体平台。当前交付版本为 V0.4，覆盖统一门户、账号权限、Langflow 工作流、知识库语义检索和 MCP 工具中心。部署采用单机 Docker Compose，前端使用 Vue 3，业务 API 使用 FastAPI，业务与引擎使用独立 PostgreSQL 数据库，向量检索使用 Qdrant。
 
-## 项目定位
+## 正式文档
 
-面向企业业务场景的 AI 智能体平台，集成智能体编排、
-知识库检索、模型管理、工具调用、安全治理及运维监控。
+| 阅读顺序 | 文档 | 内容 |
+| --- | --- | --- |
+| 01–02 | [项目说明与架构](docs/ARCHITECTURE.md) | 交付状态、组件取舍、部署拓扑、数据流、端口和存储 |
+| 03–05 | [环境准备与部署](docs/DEPLOYMENT.md) | Ubuntu 准备、配置参数、服务启动、SSH 隧道和部署验证 |
+| 06–08 | [平台使用与安全设计](docs/USER-GUIDE.md) | 使用步骤、实测截图、权限矩阵、凭据和出站安全 |
+| 09–11 | [验收、运维、故障排查与开发](docs/OPERATIONS.md) | 自动化验收、状态巡检、更新、备份与隔离恢复、排障和交接 |
+| 证据 | [阶段进度与验收记录](docs/PROGRESS.md) | 实际部署、实测结果、资源快照与阻塞 |
 
-## 技术选型
+## 现有实例
 
-- Frontend: Vue3 + TypeScript + Element Plus
-- Backend: FastAPI + SQLAlchemy + Alembic
-- Agent Engine: Langflow
-- Database: PostgreSQL
-- Vector Database: Qdrant
-- Cache: Redis
-- Integration: MCP + REST API
-- Deployment: Docker Compose / Kubernetes
-- Monitoring: Prometheus + Grafana + Langfuse
+Ubuntu 宿主机为 `192.168.61.132`，项目位于 `/home/ubuntu/ai-agent-platform`。门户和 Langflow 分别使用回环端口 `8080` 和 `7860`，经 [SSH 隧道](docs/DEPLOYMENT.md#052-从客户端访问) 访问。两套账号独立管理。
 
-## 架构原则
+> **待验证：** 云端模型连接因 Fake-IP 触发 SSRF 防护，真实云推理及生成式 RAG 仍待验证。本地语义检索、Qdrant 持久化和内置 MCP 已实测。完整能力边界见 [项目状态表](docs/ARCHITECTURE.md#01-项目介绍)。
 
-- Modular Monolith（模块化单体）
-- Loose Coupling（低耦合）
-- Security by Design（安全优先）
-- Progressive Deployment（渐进式部署）
-- Automated Testing（自动化测试）
-
-## 开发环境
-
-- OS: Ubuntu Server 24.04 LTS
-- CPU: 4 Cores
-- RAM: 8GB
-- Disk: 100GB
-- Virtualization: VMware
-
-## 项目进度
-
-V0.4 - 知识库、多语言语义检索与 MCP 工具中心
-
-## 第四阶段功能入口
-
-现有 8080 门户提供知识库管理、MCP 工具中心和智能体资源授权。阶段测试由项目执行方在实际部署上完成，结果及证据见 [docs/PROGRESS.md](docs/PROGRESS.md)。
-
-新环境启动第四阶段前运行 `python3 scripts/provision_phase4.py`，生成内部服务密钥并安装经校验的本地 Embedding 文件。文档原文及片段保存在业务数据库，向量保存在 Qdrant 数据卷。可选云端 Embedding 配置见 `.env.example`。
-
-## 第三阶段配置
-
-门户管理员经 8080 SSH 隧道进入「模型管理」，新增服务商、模型标识和 API Key，测试连接后启用并设为默认模型。OpenAI、DeepSeek、Qwen 使用固定官方地址，自定义 OpenAI-compatible 服务使用公开 HTTPS 443 地址。模型密钥由后端加密保存，`PLATFORM_MODEL_KEY` 应随受限部署配置安全备份。
-
-「企业 IT 智能运维助手」已创建为草稿并关联 Langflow 模型对话流程。配置启用的 OpenAI 或 DeepSeek 模型后，在「智能体管理」选择该模型并调试，按需发布。Qwen 和自定义服务可用于普通模型对话。现有 Langflow 编排入口仍通过 7860 SSH 隧道和独立 Langflow 登录访问。
-
-新部署可在宿主机运行 `python3 scripts/provision_langflow.py` 配置非管理员引擎服务账号及模型加密密钥，随后重建后端并运行 `python3 scripts/seed_ai.py` 初始化内置流程和助手。当前实例已执行这两步。
-
-## 统一门户
-
-门户通过 Nginx 提供 Vue 生产构建产物和同源 `/api/v1` 接口。在客户端建立隧道后打开 `http://127.0.0.1:8080/`。
-
-```sh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:8080:127.0.0.1:8080 ubuntu@192.168.61.132
-```
-
-当前门户管理员用户名是 `portal_admin`，初始密码位于虚拟机项目根目录的 `.env` 中，变量为 `PLATFORM_ADMIN_PASSWORD`。在私有 SSH 终端查看该项，登录后通过个人设置修改密码。初始化配置只在没有可用管理员时生效。门户账号独立于 Langflow 账号。
-
-新环境按 `.env.example` 生成独立的 `PLATFORM_ADMIN_PASSWORD` 和 `PLATFORM_JWT_SECRET`，将 `.env` 权限设为 `0600`，然后运行 `docker compose up -d --build --wait`。后端启动时通过 Alembic 迁移业务库，再初始化管理员。当前回环入口由 SSH 提供传输加密，启用 HTTPS 时设置 `PLATFORM_COOKIE_SECURE=true`。
-
-在刚初始化且仍使用初始管理员密码的部署上，执行 `python3 tests/phase2_smoke.py` 可验证生产前端产物、API、权限、会话、账号管理及登录限流。脚本需要本机 Docker 权限以清理此次测试创建的账号。
-
-## 第一阶段开发入口
-
-PostgreSQL 和 Langflow 由根目录的 `compose.yaml` 管理。新环境以 `.env.example` 为模板填写五个独立随机值，将 `.env` 权限设为 `0600`，然后执行 `docker compose config --quiet` 和 `docker compose up -d --wait`。首次启动在 PostgreSQL 数据卷中创建 `platform` 和 `langflow` 两套数据库及账号，并在 Langflow 中初始化管理员。
-
-当前虚拟机的 Langflow 监听 `127.0.0.1:7860`。在客户端建立 SSH 隧道后打开浏览器的 `http://127.0.0.1:7860/`：
-
-```sh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:7860:127.0.0.1:7860 ubuntu@192.168.61.132
-```
-
-当前管理员用户名是 `platform_admin`，初始密码保存在虚拟机项目根目录 `.env` 的 `LANGFLOW_SUPERUSER_PASSWORD` 项。请在受限终端查看。
-
-初始化 SQL 只在 PostgreSQL 数据卷首次启动时执行。持久卷中的账号变更应通过数据库或 Langflow 的管理接口操作，并同步更新连接配置。实际验收记录见 [docs/PROGRESS.md](docs/PROGRESS.md)。
+开发及自主验收约束见 [AGENTS.md](AGENTS.md)。
