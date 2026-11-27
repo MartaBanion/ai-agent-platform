@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db import engine
 from app.ai_models import Execution
+from app.knowledge_models import Document, ToolCall
 from app.models import User
 from app.schemas import CreateUser
 from app.security import hash_password
@@ -15,6 +16,10 @@ def bootstrap():
     with Session(engine) as db:
         db.execute(update(Execution).where(Execution.status == "running")
                    .values(status="cancelled", error="服务重启中断执行"))
+        db.execute(update(Document).where(Document.status.in_(("queued", "processing")))
+                   .values(status="failed", error="服务重启中断处理，请重新处理"))
+        db.execute(update(ToolCall).where(ToolCall.state == "running")
+                   .values(state="failed", error="服务重启中断调用，实际副作用状态未知", arguments=None))
         db.commit()
         if db.scalar(select(User.id).where(User.role == "admin", User.is_active.is_(True)).limit(1)):
             return

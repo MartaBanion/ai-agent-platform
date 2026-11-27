@@ -6,6 +6,7 @@ from pydantic import Field, model_validator
 from sqlalchemy import select
 
 from app.agent_api import agent_runtime
+from app.knowledge_api import agent_references, rag_context
 from app.ai_access import owned
 from app.ai_models import Conversation, Execution, Message
 from app.execution import begin, stream_response
@@ -125,16 +126,19 @@ def generate(key: UUID, payload: Send, db: Db, identity: Identity):
         history.append({"role": "user", "content": text})
     row.updated_at = datetime.now(UTC)
     config = model_config(model) if model else None
+    references = []
     if agent:
         text = history[-1]["content"]
+        if workflow.kind == "prompt":
+            references = agent_references(db, agent.id, user, text)
         if workflow.kind == "prompt" and len(history) > 1:
             prior = "\n".join(("用户" if item["role"] == "user" else "助手") + "：" + item["content"]
                               for item in history[:-1])
             text = f"对话历史：\n{prior}\n\n用户当前消息：\n{text}"
-        events = flow_events(workflow.engine_id, workflow.kind, workflow.digest, text, key,
+        events = flow_events(workflow.engine_id, workflow.kind, workflow.digest, rag_context(text, references), key,
                              config, agent.system_prompt)
     else:
         events = model_events(config, history)
     execution_id = execution.id
     db.commit()
-    return stream_response(events, execution_id)
+    return stream_response(events, execution_id, references)

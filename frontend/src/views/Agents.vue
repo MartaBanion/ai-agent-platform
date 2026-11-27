@@ -5,6 +5,7 @@ import { api, errorMessage } from '../api'
 import { useAuth } from '../auth'
 import type { Agent, ModelOption, Workflow } from '../ai'
 import ExecutionPanel from '../ExecutionPanel.vue'
+import AgentResources from '../AgentResources.vue'
 
 const user = useAuth()
 const builder = computed(() => user.user?.role === 'admin' || user.user?.role === 'developer')
@@ -14,6 +15,8 @@ const workflows = ref<Workflow[]>([])
 const active = ref<Agent | null>(null)
 const editing = ref<Agent | null>(null)
 const editor = ref(false)
+const resourcesOpen = ref(false)
+const resourceAgent = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
@@ -85,13 +88,14 @@ onMounted(load)
           <el-button link type="primary" :disabled="!agent.enabled" @click="active = agent">{{ agent.editable ? '调试与历史' : '执行与历史' }}</el-button>
           <template v-if="builder && agent.editable">
             <el-button link type="primary" @click="edit(agent)">编辑</el-button>
+            <el-button link type="primary" @click="resourceAgent = agent.id; resourcesOpen = true">关联资源</el-button>
             <el-button link type="danger" @click="remove(agent)">删除</el-button>
           </template>
         </div>
       </article>
     </div>
     <div v-if="active" class="surface tool-panel"><h2>{{ active.name }}</h2>
-      <ExecutionPanel :key="active.id" :path="'/agents/' + active.id" />
+      <ExecutionPanel :key="active.id" :path="'/agents/' + active.id" :agent-id="active.id" />
     </div>
     <el-dialog v-model="editor" :title="editing ? '编辑智能体' : '创建智能体'" width="min(92vw, 620px)">
       <form class="ai-form" @submit.prevent="save">
@@ -110,6 +114,9 @@ onMounted(load)
         </div>
         <div class="form-wide form-actions"><el-button type="primary" native-type="submit" :loading="saving">保存</el-button></div>
       </form>
+    </el-dialog>
+    <el-dialog v-model="resourcesOpen" title="关联知识库与工具" width="min(92vw, 640px)" destroy-on-close>
+      <AgentResources v-if="resourceAgent" :agent-id="resourceAgent" @saved="resourcesOpen = false" />
     </el-dialog>
   </section>
 </template>

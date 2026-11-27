@@ -24,12 +24,13 @@ export class ApiError extends Error {
 
 export async function api<T>(path: string, method = 'GET', body?: unknown, timeout = 12000): Promise<T> {
   let response: Response
+  const multipart = body instanceof FormData
   try {
     response = await fetch('/api/v1' + path, {
       method,
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-Platform-Request': '1' },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: { ...(!multipart && { 'Content-Type': 'application/json' }), 'X-Platform-Request': '1' },
+      body: multipart ? body : body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(timeout),
     })
   } catch {

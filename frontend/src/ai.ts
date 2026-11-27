@@ -1,4 +1,5 @@
 import { ApiError } from './api'
+import type { Reference } from './resources'
 
 export interface ModelOption {
   id: string
@@ -49,7 +50,7 @@ export interface Execution {
 
 export async function stream(
   path: string, body: unknown, signal: AbortSignal, delta: (text: string) => void,
-  started?: (id: string) => void,
+  started?: (id: string, references: Reference[]) => void,
 ) {
   const response = await fetch('/api/v1' + path, {
     method: 'POST',
@@ -78,7 +79,7 @@ export async function stream(
         const data = frame.find(line => line.startsWith('data: '))?.slice(6)
         if (!data) continue
         const payload = JSON.parse(data)
-        if (event === 'start') started?.(payload.id)
+        if (event === 'start') started?.(payload.id, payload.references ?? [])
         if (event === 'delta') delta(payload.text)
         if (event === 'error') throw new ApiError(502, payload.message)
         if (event === 'done') done = true

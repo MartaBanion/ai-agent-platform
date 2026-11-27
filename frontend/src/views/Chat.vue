@@ -5,6 +5,8 @@ import { ChatDotRound, Plus } from '@element-plus/icons-vue'
 import { api, errorMessage } from '../api'
 import { isAbort, stream, type Agent, type ModelOption } from '../ai'
 import Markdown from '../Markdown.vue'
+import ReferenceList from '../ReferenceList.vue'
+import type { Reference } from '../resources'
 
 interface Conversation { id: string; title: string; updated_at: string }
 interface Message { id: string; role: 'user' | 'assistant'; content: string }
@@ -19,6 +21,7 @@ const model = ref('')
 const agent = ref('')
 const draft = ref('')
 const partial = ref('')
+const references = ref<Reference[]>([])
 const loading = ref(false)
 const fetching = ref(false)
 const generating = ref(false)
@@ -58,6 +61,7 @@ async function scrollBottom() {
 async function open(id: string) {
   if (generating.value) return
   selected.value = id
+  references.value = []
   partial.value = ''
   error.value = ''
   messages.value = []
@@ -122,6 +126,7 @@ async function send(retry = false) {
   if (generating.value || fetching.value || !targetReady.value || (!retry && !input)) return
   generating.value = true
   executionId = ''
+  references.value = []
   error.value = ''
   partial.value = ''
   let id = selected.value
@@ -141,7 +146,7 @@ async function send(retry = false) {
         partial.value += chunk
         const panel = timeline.value
         if (panel && panel.scrollHeight - panel.scrollTop - panel.clientHeight < 120) void scrollBottom()
-      }, id => executionId = id)
+      }, (id, sources) => { executionId = id; references.value = sources })
   } catch (cause) {
     error.value = isAbort(cause) ? '已停止生成，可重试最后一条消息。' : errorMessage(cause)
   } finally {
@@ -234,6 +239,7 @@ onUnmounted(() => generator?.abort())
               <Markdown v-if="partial" :text="partial" /><p v-else class="muted">等待模型响应…</p>
             </article>
           </template>
+          <ReferenceList :items="references" />
         </div>
         <form class="chat-composer" @submit.prevent="send()">
           <el-alert v-if="error" :title="error" type="error" :closable="false" />

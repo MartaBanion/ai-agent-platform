@@ -11,6 +11,7 @@ from app.ai_models import Execution, Workflow, WorkflowVersion
 from app.execution import begin, serialize, stream_response
 from app.flow_runtime import PORT, approved, engine_request, flow_events, graph_digest, trusted_graph, verify_flow
 from app.model_api import model_config, selected
+from app.knowledge_api import get_kb, rag_context, retrieve
 from app.provider import UpstreamError
 from app.schemas import Input, Name
 from app.security import Db, Identity, audit
@@ -33,6 +34,7 @@ class Attach(Input):
 class Run(Input):
     text: str = Field(min_length=1, max_length=12000)
     model_id: UUID | None = None
+    knowledge_id: UUID | None = None
 
 
 def workflow_view(row):
@@ -182,9 +184,20 @@ def run(key: UUID, payload: Run, db: Db, identity: Identity):
     require_builder(user)
     workflow = owned(db.get(Workflow, key), user)
     model = selected(db, payload.model_id) if workflow.kind == "prompt" else None
+    references = []
+    if payload.knowledge_id:
+        if workflow.kind != "prompt":
+            raise HTTPException(422, "只有模型对话流程可使用检索上下文")
+        library = get_kb(db, payload.knowledge_id, user)
+        if not library.enabled:
+            raise HTTPException(409, "知识库已停用")
+        try:
+            references = retrieve(db, [library], payload.text[:1600], cap=6)
+        except UpstreamError as error:
+            raise HTTPException(502, str(error)) from None
     execution = begin(db, user, "workflow", workflow=key, model=model.id if model else None)
-    events = flow_events(workflow.engine_id, workflow.kind, workflow.digest, payload.text, uuid4(),
+    events = flow_events(workflow.engine_id, workflow.kind, workflow.digest, rag_context(payload.text, references), uuid4(),
                          model_config(model) if model else None)
     execution_id = execution.id
     db.commit()
-    return stream_response(events, execution_id)
+    return stream_response(events, execution_id, references)

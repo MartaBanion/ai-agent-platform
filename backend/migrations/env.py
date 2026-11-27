@@ -1,7 +1,7 @@
 from alembic import context
 
 from app.db import Base, engine
-from app import ai_models, models  # Register model metadata.
+from app import ai_models, knowledge_models, models  # Register model metadata.
 
 with engine.connect() as connection:
     context.configure(connection=connection, target_metadata=Base.metadata)

@@ -111,3 +111,39 @@ Langflow 原签名密钥格式无法签发加密 API Key。集成使用已实测
 | Langflow | 0.28% | 1.346 GiB / 3 GiB |
 
 CPU 为回归测试结束后的单次采样。门户 8080 和 Langflow 7860 继续仅绑定回环地址。RAG、MCP、任务调度和完整监控留待后续。
+
+## 第四阶段 · 知识库、RAG 与 MCP 工具中心
+
+新增 Qdrant 1.20.2 官方镜像及独立的内置 MCP 服务。Qdrant 使用固定摘要、API Key、命名卷和独立内部网络。MCP 使用官方 Python SDK 1.30.0 的 Streamable HTTP，运行于非 root 容器和私有 cgroup，凭据验证后仅提供六种受限工具。两个服务均无宿主机端口。PostgreSQL 和 Langflow 保留原容器和数据卷。[Qdrant 版本](https://github.com/qdrant/qdrant/releases/tag/v1.20.2) · [MCP SDK 版本](https://github.com/modelcontextprotocol/python-sdk/releases/tag/v1.30.0)
+
+### 交付
+
+- 知识库支持私有或共享、启停、增删改查。文档支持 PDF、DOCX、TXT 和 Markdown，含 8 MiB 上传校验、异步索引状态、下载、预览、重处理和关联向量清理。扫描 PDF 需预先 OCR。
+- 本地使用量化 ONNX multilingual-e5-small，固定修订版 `761b726dd34fb83930e26aab4e9ac3899aa1fa78`，384 维，预先核对模型文件的 SHA-256。云端 OpenAI-compatible Embedding 为可选部署配置。切分长度、重叠、Top K 和阈值可调，结果引用原始文档、页码及片段。[固定模型权重](https://huggingface.co/Xenova/multilingual-e5-small/tree/761b726dd34fb83930e26aab4e9ac3899aa1fa78)
+- 智能体按调用人权限使用关联知识库，可单独预览检索上下文。模型工作流可带知识引用执行，实际 Langflow 能力限定沿用第三阶段。工具中心支持服务注册与发现、显式工具授权、参数校验、审批、调用结果与审计。外部工具每次需要审批，并在调用前检查当前工具结构。智能体仅能使用已授权的工具和调用人有权访问的结果。
+- 当前实例已注册私有「企业运维工具」，默认每次由管理员审批。网络工具只计算 CIDR 或检查固定的内部健康端点。指标为运维容器的 CPU、内存及临时文件系统数据。
+
+### 实测结果
+
+| 项目 | 结果 |
+| --- | --- |
+| 向量与持久化 | 4 份格式不同的真实文档完成解析和 ONNX 向量化。中文问题「我忘了登录口令，怎么找回访问权限？」检索时，凭证文档排第 1，余弦相似度 0.853，三个干扰项为 0.841、0.828、0.806。Qdrant 重启后仍有 4 点且排序保持。重处理后点数不变，删除目标文档后为 3 点且无旧引用 |
+| 文件与权限 | 下载返回原始文件。PDF 引用保留页码，签名错误的文件被拒绝。已验证私有及共享知识库、跨用户读取限制、普通用户写入拒绝和停用检索拒绝 |
+| MCP | 实际 SDK 初始化并发现 6 项工具，六项均通过真实协议调用。调用参数、权限、审批通过及拒绝、失败状态、耗时和结果已验证。运维容器实测 UID 为 10001，cgroup 为 private |
+| Chromium 8080 | 从宿主机回环端口实测知识库 CRUD、文件上传/预览/下载/重处理/删除、语义引用、MCP 注册/发现/授权/审批/结果、智能体关联、深色主题及移动导航 |
+| 构建与迁移 | TypeScript、Vite 生产构建、Compose、`nginx -t`、`pip check` 通过。Alembic 为 `0003_knowledge_tools (head)` 且无模型差异。第四阶段 5 项单测及集成测试通过，第二、三阶段回归通过 |
+
+### 资源快照及待验证
+
+2026-11-27 14:21（UTC+08:00）采样。6 个容器均健康，OOM 标志为 false，自动重启计数 0。宿主机负载为 0.35 / 0.40 / 0.27，内存已用 3.0 GiB / 7.7 GiB，可用 4.7 GiB。Swap 使用 780 KiB，磁盘已用 15 GiB / 97 GiB（17%），本地 Embedding 文件约 130 MiB。
+
+| 容器 | CPU | 内存 |
+| --- | ---: | ---: |
+| FastAPI | 0.20% | 552.1 MiB / 896 MiB |
+| Qdrant | 0.04% | 17.17 MiB / 384 MiB |
+| MCP 运维 | 0.22% | 42.47 MiB / 128 MiB |
+| Nginx | 0.00% | 3.48 MiB / 64 MiB |
+| PostgreSQL | 7.44% | 65.77 MiB / 1 GiB |
+| Langflow | 0.90% | 1.354 GiB / 3 GiB |
+
+生成式 RAG、云端 Embedding 和真实外部 MCP 服务接入尚待具备对应服务、有效凭据和合规出站时验证。本阶段未修改第三阶段网络及 SSRF 校验，也未启动 Redis 或 Celery。

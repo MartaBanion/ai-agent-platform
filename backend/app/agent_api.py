@@ -5,6 +5,8 @@ from pydantic import Field
 from sqlalchemy import or_, select
 
 from app.ai_access import owned, require_builder, shared_agent
+from app.agent_resources import checked_tool_context
+from app.knowledge_api import agent_references, rag_context
 from app.ai_models import Agent, Execution, Workflow
 from app.execution import begin, serialize, stream_response
 from app.flow_runtime import MODEL_PROVIDERS, flow_events
@@ -28,6 +30,7 @@ class AgentForm(Input):
 
 class AgentRun(Input):
     text: str = Field(min_length=1, max_length=12000)
+    tool_call_id: UUID | None = None
 
 
 def view(agent, user):
@@ -105,12 +108,18 @@ def agent_runtime(db, user, key):
 def run(key: UUID, payload: AgentRun, db: Db, identity: Identity):
     user = identity[0]
     agent, workflow, model = agent_runtime(db, user, key)
+    references, prompt = [], payload.text
+    if workflow.kind == "prompt":
+        references = agent_references(db, key, user, payload.text)
+        prompt = rag_context(payload.text, references) + checked_tool_context(db, agent, user, payload.tool_call_id)
+    elif payload.tool_call_id:
+        raise HTTPException(422, "文本直通流程不能合并工具上下文")
     execution = begin(db, user, "agent", agent=key, workflow=workflow.id, model=model.id if model else None)
-    events = flow_events(workflow.engine_id, workflow.kind, workflow.digest, payload.text, uuid4(),
+    events = flow_events(workflow.engine_id, workflow.kind, workflow.digest, prompt, uuid4(),
                          model_config(model) if model else None, agent.system_prompt)
     execution_id = execution.id
     db.commit()
-    return stream_response(events, execution_id)
+    return stream_response(events, execution_id, references)
 
 
 @router.get("/{key}/history")

@@ -89,11 +89,22 @@ services:
       PLATFORM_LANGFLOW_SERVICE_PASSWORD: ${PLATFORM_LANGFLOW_SERVICE_PASSWORD:-}
       PLATFORM_MODEL_KEY: ${PLATFORM_MODEL_KEY:-}
       LANGFLOW_EDITOR_PORT: ${LANGFLOW_PORT:-7860}
+      PLATFORM_QDRANT_KEY: ${PLATFORM_QDRANT_KEY:?Set PLATFORM_QDRANT_KEY in .env}
+      PLATFORM_MCP_KEY: ${PLATFORM_MCP_KEY:?Set PLATFORM_MCP_KEY in .env}
+      EMBEDDING_CLOUD_URL: ${EMBEDDING_CLOUD_URL:-}
+      EMBEDDING_CLOUD_MODEL: ${EMBEDDING_CLOUD_MODEL:-}
+      EMBEDDING_CLOUD_DIMENSION: ${EMBEDDING_CLOUD_DIMENSION:-}
+      EMBEDDING_CLOUD_KEY: ${EMBEDDING_CLOUD_KEY:-}
+      OMP_NUM_THREADS: "1"
     networks:
       - database
       - portal
-    cpus: 0.75
-    mem_limit: 384m
+      - vector
+      - tools
+    volumes:
+      - ./data/embedding:/models:ro
+    cpus: 1.0
+    mem_limit: 896m
     cap_drop: [ALL]
     read_only: true
     tmpfs: [/tmp:size=16m]
@@ -103,6 +114,43 @@ services:
       timeout: 4s
       retries: 5
       start_period: 20s
+
+  qdrant:
+    <<: *service-defaults
+    image: qdrant/qdrant:v1.20.2@sha256:d277592721d2e3b73f9b797b53cf05e6a5bb2134f6d13fdbda4ca51782afbcac
+    environment:
+      QDRANT__SERVICE__API_KEY: ${PLATFORM_QDRANT_KEY:?Set PLATFORM_QDRANT_KEY in .env}
+      QDRANT__TELEMETRY_DISABLED: "true"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks: [vector]
+    cpus: 0.5
+    mem_limit: 384m
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/6333; printf 'GET /healthz HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3; read -r line <&3; [[ \"$$line\" == *' 200 '* ]]"]
+      interval: 10s
+      timeout: 4s
+      retries: 5
+
+  ops:
+    <<: *service-defaults
+    image: ai-agent-platform-backend
+    command: ["uvicorn", "app.ops_tools:app", "--host", "0.0.0.0", "--port", "8001", "--no-access-log", "--no-proxy-headers", "--limit-concurrency", "12"]
+    init: true
+    environment:
+      PLATFORM_MCP_KEY: ${PLATFORM_MCP_KEY:?Set PLATFORM_MCP_KEY in .env}
+    networks: [tools]
+    cpus: 0.25
+    mem_limit: 128m
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp:size=4m]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8001/health', timeout=3).close()"]
+      interval: 10s
+      timeout: 4s
+      retries: 5
 
   portal:
     <<: *service-defaults
@@ -135,7 +183,12 @@ networks:
     internal: true
   outbound:
   portal:
+  vector:
+    internal: true
+  tools:
+    internal: true
 
 volumes:
   postgres_data:
   langflow_data:
+  qdrant_data:

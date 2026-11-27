@@ -85,9 +85,7 @@ TRANSITION_NETWORKS = tuple(map(ipaddress.ip_network, ("64:ff9b::/96", "64:ff9b:
 GLOBAL_UNICAST = ipaddress.ip_network("2000::/3")
 
 
-async def pinned_url(base):
-    parts = urlsplit(base)
-    host = parts.hostname
+async def public_destination(host):
     try:
         options = await asyncio.wait_for(
             asyncio.get_running_loop().getaddrinfo(host, 443, type=socket.SOCK_STREAM), timeout=4
@@ -99,7 +97,13 @@ async def pinned_url(base):
         raise UpstreamError("模型域名无法解析") from None
     # Prefer IPv4 on hosts with IPv6 DNS but no usable IPv6 egress.
     target = sorted(addresses, key=lambda value: (":" in value, value))[0]
-    authority = f"[{target}]" if ":" in target else target
+    return f"[{target}]" if ":" in target else target
+
+
+async def pinned_url(base):
+    parts = urlsplit(base)
+    host = parts.hostname
+    authority = await public_destination(host)
     return f"https://{authority}{parts.path}/chat/completions", host
 
 

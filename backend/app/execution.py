@@ -6,6 +6,7 @@ from uuid import UUID
 
 import anyio
 from fastapi import APIRouter, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -103,7 +104,7 @@ def frame(event, data):
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-def stream_response(events, key):
+def stream_response(events, key, references=()):
     async def generate():
         started = perf_counter()
         signal = asyncio.Event()
@@ -114,7 +115,7 @@ def stream_response(events, key):
         usage = {}
         status, reason = "cancelled", "客户端停止生成"
         try:
-            yield frame("start", {"id": str(key)})
+            yield frame("start", {"id": str(key), "references": jsonable_encoder(references)})
             while True:
                 event, value = await next_event(queue, signal)
                 if event == "end":
